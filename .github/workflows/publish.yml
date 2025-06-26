@@ -33,14 +33,14 @@ jobs:
         id: plugin-name
         uses: mavrosxristoforos/get-xml-info@2.0
         with:
-          xml-file: "ReviewsManager/ReviewsManager.csproj"
+          xml-file: "Directory.Build.props"
           xpath: "//PluginName"
 
       - name: Parse plugin version from Directory.Build.props
         id: plugin-version
         uses: mavrosxristoforos/get-xml-info@2.0
         with:
-          xml-file: "ReviewsManager/ReviewsManager.csproj"
+          xml-file: "Directory.Build.props"
           xpath: "//Version"
 
       - name: Parse ASF version from Directory.Build.props

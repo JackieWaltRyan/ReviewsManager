@@ -4,14 +4,12 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Dom;
 using ArchiSteamFarm.Core;
 using ArchiSteamFarm.Helpers.Json;
 using ArchiSteamFarm.Plugins.Interfaces;
 using ArchiSteamFarm.Steam;
 using ArchiSteamFarm.Steam.Integration;
 using ArchiSteamFarm.Web.Responses;
-using SteamKit2;
 
 namespace ReviewsManager;
 
@@ -93,16 +91,14 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
             HtmlDocumentResponse? rawResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamCommunityURL}/profiles/{bot.SteamID}/recommended/?p={page}")).ConfigureAwait(false);
 
-            IDocument? response = rawResponse?.Content;
-
-            if (response != null) {
+            if (rawResponse?.Content != null) {
                 Regex existingReviewsRegex = ExistingReviewsRegex();
-                MatchCollection existingReviewsMatches = existingReviewsRegex.Matches(response.Source.Text);
+                MatchCollection existingReviewsMatches = existingReviewsRegex.Matches(rawResponse.Content.Source.Text);
 
                 if (existingReviewsMatches.Count > 0) {
                     foreach (Match match in existingReviewsMatches) {
-                        if (uint.TryParse(match.Groups["subID"].Value, out uint subId)) {
-                            reviewList.Add(subId);
+                        if (uint.TryParse(match.Groups["subID"].Value, out uint subID)) {
+                            reviewList.Add(subID);
                         }
                     }
 
@@ -152,24 +148,24 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                 foreach (Game game in response.Response.Games) {
                     gamesIDs.Add(game.AppId);
 
-                    if (game.PlaytimeForever >= 5 && !reviews.Contains(game.AppId)) {
+                    if ((game.PlaytimeForever >= 5) && !reviews.Contains(game.AppId)) {
                         addData.Add(game.AppId);
                     }
                 }
 
-                foreach (uint subId in reviews) {
-                    if (!gamesIDs.Contains(subId)) {
-                        delData.Add(subId);
+                foreach (uint subID in reviews) {
+                    if (!gamesIDs.Contains(subID)) {
+                        delData.Add(subID);
                     }
                 }
 
-                if (AddEnable[bot.BotName] && addData.Count > 0) {
+                if (AddEnable[bot.BotName] && (addData.Count > 0)) {
                     bot.ArchiLogger.LogGenericInfo($"Add reviews found: {addData.Count}");
 
                     AddTimers[bot.BotName].Change(1, -1);
                 }
 
-                if (DelEnable[bot.BotName] && delData.Count > 0) {
+                if (DelEnable[bot.BotName] && (delData.Count > 0)) {
                     bot.ArchiLogger.LogGenericInfo($"Del reviews found: {delData.Count}");
 
                     DelTimers[bot.BotName].Change(1, -1);
