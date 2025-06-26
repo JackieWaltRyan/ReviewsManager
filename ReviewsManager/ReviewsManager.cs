@@ -1,109 +1,283 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using AngleSharp.Dom;
+using ArchiSteamFarm.Core;
 using ArchiSteamFarm.Helpers.Json;
 using ArchiSteamFarm.Plugins.Interfaces;
 using ArchiSteamFarm.Steam;
+using ArchiSteamFarm.Steam.Integration;
 using ArchiSteamFarm.Web.Responses;
 
 namespace ReviewsManager;
 
-internal sealed class ReviewsManager : IGitHubPluginUpdates, IBotModules {
+internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules {
     public string Name => nameof(ReviewsManager);
     public string RepositoryName => "JackieWaltRyan/ReviewsManager";
     public Version Version => typeof(ReviewsManager).Assembly.GetName().Version ?? throw new InvalidOperationException(nameof(Version));
-    public static Dictionary<string, Timer> BotTimers = new();
+
+    public Dictionary<string, bool> AddEnable = new();
+    public Dictionary<string, bool> DelEnable = new();
+
+    public Dictionary<string, AddReviewsConfig> AddReviewsConfig = new();
+
+    public Dictionary<string, Timer> GetTimers = new();
+    public Dictionary<string, Timer> AddTimers = new();
+    public Dictionary<string, Timer> DelTimers = new();
 
     public Task OnLoaded() => Task.CompletedTask;
 
     public Task OnBotInitModules(Bot bot, IReadOnlyDictionary<string, JsonElement>? additionalConfigProperties = null) {
-        if (additionalConfigProperties == null) {
-            return Task.CompletedTask;
-        }
+        if (additionalConfigProperties != null) {
+            AddEnable[bot.BotName] = false;
+            DelEnable[bot.BotName] = false;
 
-        bool isEnabled = false;
-        bool addEnabled = true;
-        bool delEnabled = true;
+            AddReviewsConfig[bot.BotName] = new AddReviewsConfig();
 
-        uint timeout = 60;
+            GetTimers[bot.BotName] = new Timer(async e => await GetAllReviews(bot).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
 
-        List<uint> addData = [];
-        List<uint> delData = [];
+            foreach (KeyValuePair<string, JsonElement> configProperty in additionalConfigProperties) {
+                switch (configProperty.Key) {
+                    case "AddMissingReviews" when configProperty.Value.ValueKind is JsonValueKind.True or JsonValueKind.False: {
+                        bool isEnabled = configProperty.Value.GetBoolean();
 
-        foreach (KeyValuePair<string, JsonElement> configProperty in additionalConfigProperties) {
-            switch (configProperty.Key) {
-                case "EnableReviewsManager" when configProperty.Value.ValueKind is JsonValueKind.True or JsonValueKind.False: {
-                    isEnabled = configProperty.Value.GetBoolean();
+                        bot.ArchiLogger.LogGenericInfo($"AddMissingReviews: {isEnabled}");
 
-                    bot.ArchiLogger.LogGenericInfo($"Enable Reviews Manager: {isEnabled}");
+                        AddEnable[bot.BotName] = isEnabled;
 
-                    break;
-                }
+                        break;
+                    }
 
-                case "ReviewsManagerTimeout" when configProperty.Value.ValueKind == JsonValueKind.Number: {
-                    timeout = configProperty.Value.ToJsonObject<uint>();
+                    case "AddReviewsConfig": {
+                        AddReviewsConfig? config = configProperty.Value.ToJsonObject<AddReviewsConfig>();
 
-                    bot.ArchiLogger.LogGenericInfo($"Reviews Manager Timeout: {timeout}");
+                        if (config != null) {
+                            AddReviewsConfig[bot.BotName] = config;
+                        }
 
-                    break;
-                }
+                        break;
+                    }
 
-                case "ReviewsManagerAdd" when configProperty.Value.ValueKind is JsonValueKind.True or JsonValueKind.False: {
-                    addEnabled = configProperty.Value.GetBoolean();
+                    case "DelMissingReviews" when configProperty.Value.ValueKind is JsonValueKind.True or JsonValueKind.False: {
+                        bool isEnabled = configProperty.Value.GetBoolean();
 
-                    bot.ArchiLogger.LogGenericInfo($"Add non-existent reviews: {addEnabled}");
+                        bot.ArchiLogger.LogGenericInfo($"DelMissingReviews: {isEnabled}");
 
-                    break;
-                }
+                        DelEnable[bot.BotName] = isEnabled;
 
-                case "ReviewsManagerDel" when configProperty.Value.ValueKind is JsonValueKind.True or JsonValueKind.False: {
-                    delEnabled = configProperty.Value.GetBoolean();
-
-                    bot.ArchiLogger.LogGenericInfo($"Remove non-existent reviews: {delEnabled}");
-
-                    break;
+                        break;
+                    }
                 }
             }
-        }
 
-        if (isEnabled) {
-            // ReSharper disable once AsyncVoidMethod
-            BotTimers.Add(bot.BotName, new Timer(async void (e) => await GetUserReviews(bot, addEnabled, addData, delEnabled, delData, timeout).ConfigureAwait(false), null, 0, Timeout.Infinite));
+            if (AddEnable[bot.BotName] || DelEnable[bot.BotName]) {
+                GetTimers[bot.BotName].Change(1, -1);
+            }
         }
 
         return Task.CompletedTask;
     }
 
-    public static async Task GetUserReviews(Bot bot, bool addEnabled, List<uint> addData, bool delEnabled, List<uint> delData, uint timeout) {
-        await BotTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
+    [GeneratedRegex("https://steamcommunity\\.com/app/(?<subID>\\d+)", RegexOptions.CultureInvariant)]
+    private static partial Regex ExistingReviewsRegex();
 
-        ObjectResponse<JsonElement>? response = await bot.ArchiWebHandler.UrlGetToJsonObjectWithSession<JsonElement>(new Uri($"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?access_token={bot.AccessToken}&steamid={bot.SteamID}&include_played_free_games=true&skip_unvetted_apps=false")).ConfigureAwait(false);
+    public static async Task<List<uint>> LoadingExistingReviews(Bot bot, int page = 1) {
+        try {
+            List<uint> reviewList = [];
 
-        JsonElement? items = response?.Content;
+            bot.ArchiLogger.LogGenericInfo($"Checking existing reviews: Page {page}");
 
-        bot.ArchiLogger.LogGenericInfo(items.ToJsonText());
+            HtmlDocumentResponse? rawResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamCommunityURL}/profiles/{bot.SteamID}/recommended/?p={page}")).ConfigureAwait(false);
 
-        if (delEnabled && (delData.Count > 0)) {
-            await DelReviews(bot, addEnabled, addData, delEnabled, delData, timeout).ConfigureAwait(false);
-        } else if (addEnabled && (addData.Count > 0)) {
-            await AddReviews(bot, addEnabled, addData, delEnabled, delData, timeout).ConfigureAwait(false);
-        } else {
-            // ReSharper disable once AsyncVoidMethod
-            BotTimers[bot.BotName] = new Timer(async void (e) => await GetUserReviews(bot, addEnabled, addData, delEnabled, delData, timeout).ConfigureAwait(false), null, TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
+            IDocument? response = rawResponse?.Content;
+
+            if (response != null) {
+                Regex existingReviewsRegex = ExistingReviewsRegex();
+                MatchCollection existingReviewsMatches = existingReviewsRegex.Matches(response.Source.Text);
+
+                if (existingReviewsMatches.Count > 0) {
+                    foreach (Match match in existingReviewsMatches) {
+                        if (uint.TryParse(match.Groups["subID"].Value, out uint subID)) {
+                            reviewList.Add(subID);
+                        }
+                    }
+
+                    await Task.Delay(1000).ConfigureAwait(false);
+
+                    List<uint> newReviewList = await LoadingExistingReviews(bot, page + 1).ConfigureAwait(false);
+
+                    reviewList.AddRange(newReviewList);
+                }
+            } else {
+                await Task.Delay(3000).ConfigureAwait(false);
+
+                await LoadingExistingReviews(bot, page).ConfigureAwait(false);
+            }
+
+            return reviewList;
+        } catch {
+            await Task.Delay(3000).ConfigureAwait(false);
+
+            return await LoadingExistingReviews(bot, page).ConfigureAwait(false);
         }
     }
 
-    public static async Task DelReviews(Bot bot, bool addEnabled, List<uint> addData, bool delEnabled, List<uint> delData, uint timeout) {
-        await BotTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
+    public async Task GetAllReviews(Bot bot) {
+        const uint timeout = 1;
 
-        bot.ArchiLogger.LogGenericInfo($"Del non-existent reviews: {delData.ToJsonText()}");
+        if (bot.IsConnectedAndLoggedOn) {
+            List<uint> addData = [];
+            List<uint> delData = [];
+
+            AddTimers[bot.BotName] = new Timer(async e => await AddReviews(bot, addData).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
+            DelTimers[bot.BotName] = new Timer(async e => await DelReviews(bot, delData).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
+
+            ObjectResponse<GetOwnedGamesResponse>? rawResponse = await bot.ArchiWebHandler.UrlGetToJsonObjectWithSession<GetOwnedGamesResponse>(new Uri($"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?access_token={bot.AccessToken}&steamid={bot.SteamID}&include_played_free_games=true&skip_unvetted_apps=false")).ConfigureAwait(false);
+
+            GetOwnedGamesResponse? response = rawResponse?.Content;
+
+            if (response != null) {
+                bot.ArchiLogger.LogGenericInfo($"Total games found: {response.Response.GameCount}");
+
+                List<uint> reviews = await LoadingExistingReviews(bot).ConfigureAwait(false);
+
+                bot.ArchiLogger.LogGenericInfo($"Existing reviews found: {reviews.Count}");
+
+                List<uint> gamesIDs = [];
+
+                foreach (Game game in response.Response.Games) {
+                    gamesIDs.Add(game.AppId);
+
+                    if ((game.PlaytimeForever >= 5) && !reviews.Contains(game.AppId)) {
+                        addData.Add(game.AppId);
+                    }
+                }
+
+                foreach (uint subID in reviews) {
+                    if (!gamesIDs.Contains(subID)) {
+                        delData.Add(subID);
+                    }
+                }
+
+                if (AddEnable[bot.BotName] && (addData.Count > 0)) {
+                    bot.ArchiLogger.LogGenericInfo($"Add reviews found: {addData.Count}");
+
+                    AddTimers[bot.BotName].Change(1, -1);
+                }
+
+                if (DelEnable[bot.BotName] && (delData.Count > 0)) {
+                    bot.ArchiLogger.LogGenericInfo($"Del reviews found: {delData.Count}");
+
+                    DelTimers[bot.BotName].Change(1, -1);
+                }
+
+                return;
+            }
+
+            bot.ArchiLogger.LogGenericInfo($"Status: Error | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+        } else {
+            bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+        }
+
+        GetTimers[bot.BotName].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
     }
 
-    public static async Task AddReviews(Bot bot, bool addEnabled, List<uint> addData, bool delEnabled, List<uint> delData, uint timeout) {
-        await BotTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
+    public async Task AddReviews(Bot bot, List<uint> addData) {
+        uint timeout = 1;
 
-        bot.ArchiLogger.LogGenericInfo($"Add non-existent reviews: {addData.ToJsonText()}");
+        if (addData.Count > 0) {
+            if (bot.IsConnectedAndLoggedOn) {
+                uint gameId = addData[0];
+
+                ObjectResponse<AddReviewResponse>? rawResponse = await bot.ArchiWebHandler.UrlPostToJsonObjectWithSession<AddReviewResponse>(
+                    new Uri($"{ArchiWebHandler.SteamStoreURL}/friends/recommendgame?l=english"), data: new Dictionary<string, string>(9) {
+                        { "appid", $"{gameId}" },
+                        { "steamworksappid", $"{gameId}" },
+                        { "comment", AddReviewsConfig[bot.BotName].Comment },
+                        { "rated_up", AddReviewsConfig[bot.BotName].RatedUp.ToString() },
+                        { "is_public", AddReviewsConfig[bot.BotName].IsPublic.ToString() },
+                        { "language", bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? AddReviewsConfig[bot.BotName].Language },
+                        { "received_compensation", AddReviewsConfig[bot.BotName].IsFree ? "1" : "0" },
+                        { "disable_comments", AddReviewsConfig[bot.BotName].AllowComments ? "0" : "1" }
+                    }, referer: new Uri($"{ArchiWebHandler.SteamStoreURL}/app/{gameId}")
+                ).ConfigureAwait(false);
+
+                AddReviewResponse? response = rawResponse?.Content;
+
+                if (response != null) {
+                    bot.ArchiLogger.LogGenericInfo(response.ToJsonText());
+
+                    return;
+
+                    if (response.Success) {
+                        addData.RemoveAt(0);
+
+                        bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: OK | Queue: {addData.Count}");
+
+                        AddTimers[bot.BotName].Change(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
+
+                        return;
+                    }
+
+                    if (response.StrError.Contains("Пожалуйста, повторите попытку позже.", StringComparison.OrdinalIgnoreCase)) {
+                        timeout = 60;
+
+                        bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: RateLimitExceeded | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+                    } else {
+                        bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: {response.StrError} | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+                    }
+                } else {
+                    bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: Error | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+                }
+            } else {
+                bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+            }
+
+            AddTimers[bot.BotName].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
+        } else {
+            timeout = 60;
+
+            bot.ArchiLogger.LogGenericInfo($"Status: QueueIsEmpty | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+
+            GetTimers[bot.BotName].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
+        }
+    }
+
+    public async Task DelReviews(Bot bot, List<uint> delData) {
+        uint timeout = 1;
+
+        if (delData.Count > 0) {
+            if (bot.IsConnectedAndLoggedOn) {
+                uint gameId = delData[0];
+
+                await bot.ArchiWebHandler.UrlPostWithSession(
+                    new Uri($"{ArchiWebHandler.SteamCommunityURL}/profiles/{bot.SteamID}/recommended/"), data: new Dictionary<string, string>(9) {
+                        { "action", "delete" },
+                        { "appid", $"{gameId}" }
+                    }, referer: new Uri($"{ArchiWebHandler.SteamCommunityURL}/profiles/{bot.SteamID}/recommended/{gameId}/")
+                ).ConfigureAwait(false);
+
+                delData.RemoveAt(0);
+
+                bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: OK | Queue: {delData.Count}");
+
+                DelTimers[bot.BotName].Change(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
+
+                return;
+            }
+
+            bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Queue: {delData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+
+            DelTimers[bot.BotName].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
+        } else {
+            timeout = 60;
+
+            bot.ArchiLogger.LogGenericInfo($"Status: QueueIsEmpty | Queue: {delData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+
+            GetTimers[bot.BotName].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
+        }
     }
 }
