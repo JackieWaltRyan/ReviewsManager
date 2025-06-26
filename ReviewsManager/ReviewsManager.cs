@@ -211,27 +211,9 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                     bot.ArchiLogger.LogGenericInfo(response.ToJsonText());
 
                     return;
-
-                    if (response.Success) {
-                        addData.RemoveAt(0);
-
-                        bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: OK | Queue: {addData.Count}");
-
-                        AddTimers[bot.BotName].Change(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
-
-                        return;
-                    }
-
-                    if (response.StrError.Contains("Пожалуйста, повторите попытку позже.", StringComparison.OrdinalIgnoreCase)) {
-                        timeout = 60;
-
-                        bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: RateLimitExceeded | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
-                    } else {
-                        bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: {response.StrError} | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
-                    }
-                } else {
-                    bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: Error | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
                 }
+
+                bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: Error | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
             } else {
                 bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
             }
