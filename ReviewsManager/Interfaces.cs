@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 
 namespace ReviewsManager;
@@ -16,12 +16,12 @@ public class Response {
     public int GameCount { get; set; }
 
     [JsonPropertyName("games")]
-    public List<Game> Games { get; set; }
+    public required ReadOnlyCollection<Game> Games { get; set; }
 }
 
 public class GetOwnedGamesResponse {
     [JsonPropertyName("response")]
-    public Response Response { get; set; }
+    public required Response Response { get; set; }
 }
 
 public class AddReviewResponse {
@@ -29,7 +29,7 @@ public class AddReviewResponse {
     public bool Success { get; set; }
 
     [JsonPropertyName("strError")]
-    public string StrError { get; set; }
+    public required string StrError { get; set; }
 }
 
 public class AddReviewsConfig {
@@ -46,7 +46,7 @@ public class AddReviewsConfig {
     public string Language { get; set; } = "english";
 
     [JsonInclude]
-    public bool IsFree { get; set; } = false;
+    public bool IsFree { get; set; }
 
     [JsonInclude]
     public bool AllowComments { get; set; } = true;

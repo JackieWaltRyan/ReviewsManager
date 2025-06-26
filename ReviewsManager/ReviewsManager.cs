@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using AngleSharp.Dom;
 using ArchiSteamFarm.Core;
 using ArchiSteamFarm.Helpers.Json;
 using ArchiSteamFarm.Plugins.Interfaces;
@@ -91,9 +92,11 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
             HtmlDocumentResponse? rawResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamCommunityURL}/profiles/{bot.SteamID}/recommended/?p={page}")).ConfigureAwait(false);
 
-            if (rawResponse?.Content != null) {
+            IDocument? response = rawResponse?.Content;
+
+            if (response != null) {
                 Regex existingReviewsRegex = ExistingReviewsRegex();
-                MatchCollection existingReviewsMatches = existingReviewsRegex.Matches(rawResponse.Content.Source.Text);
+                MatchCollection existingReviewsMatches = existingReviewsRegex.Matches(response.Source.Text);
 
                 if (existingReviewsMatches.Count > 0) {
                     foreach (Match match in existingReviewsMatches) {

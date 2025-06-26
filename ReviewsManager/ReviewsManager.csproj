@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
-	<PropertyGroup>
-		<OutputType>Library</OutputType>
-	</PropertyGroup>
+    <PropertyGroup>
+        <OutputType>Library</OutputType>
+    </PropertyGroup>
 
-	<ItemGroup>
-		<PackageReference Include="System.Composition.AttributedModel" IncludeAssets="compile" />
-		<ProjectReference Include="..\ArchiSteamFarm\ArchiSteamFarm\ArchiSteamFarm.csproj" ExcludeAssets="all" Private="false" />
+    <ItemGroup>
+        <PackageReference Include="System.Composition.AttributedModel" IncludeAssets="compile" />
+        <ProjectReference Include="..\ArchiSteamFarm\ArchiSteamFarm\ArchiSteamFarm.csproj" ExcludeAssets="all" Private="false" />
+        <PackageReference Include="AngleSharp" />
     </ItemGroup>
 </Project>
