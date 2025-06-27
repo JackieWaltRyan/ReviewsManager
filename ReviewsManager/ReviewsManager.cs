@@ -139,7 +139,11 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
             GetOwnedGamesResponse? response = rawResponse?.Content;
 
+            bot.ArchiLogger.LogGenericInfo(response.ToJsonText());
+
             List<Game>? games = response?.Response?.Games;
+
+            bot.ArchiLogger.LogGenericInfo(games.ToJsonText());
 
             if (games != null) {
                 bot.ArchiLogger.LogGenericInfo($"Total games found: {games.Count}");
