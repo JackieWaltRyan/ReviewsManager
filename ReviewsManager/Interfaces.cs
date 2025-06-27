@@ -3,26 +3,22 @@ using System.Text.Json.Serialization;
 
 namespace ReviewsManager;
 
-public class Game {
-    [JsonPropertyName("appid")]
-    public int Appid { get; set; }
-
-    [JsonPropertyName("playtime_forever")]
-    public int PlaytimeForever { get; set; }
-}
-
-#pragma warning disable CA2227
-#pragma warning disable CA1002
-public class Response {
-    [JsonPropertyName("games")]
-    public List<Game>? Games { get; set; }
-}
-#pragma warning restore CA1002
-#pragma warning restore CA2227
-
-public class GetOwnedGamesResponse {
+internal sealed record GetOwnedGamesResponse {
     [JsonPropertyName("response")]
-    public Response? Response { get; set; }
+    public ResponseData? Response { get; set; }
+
+    internal sealed record ResponseData {
+        [JsonPropertyName("games")]
+        public List<Game>? Games { get; set; }
+    }
+
+    internal sealed record Game {
+        [JsonPropertyName("appid")]
+        public uint AppId { get; set; }
+
+        [JsonPropertyName("playtime_forever")]
+        public uint PlayTimeForever { get; set; }
+    }
 }
 
 public class AddReviewResponse {
