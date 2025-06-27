@@ -135,55 +135,60 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
             AddTimers[bot.BotName] = new Timer(async e => await AddReviews(bot, addData).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
             DelTimers[bot.BotName] = new Timer(async e => await DelReviews(bot, delData).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
 
-            ObjectResponse<GetOwnedGamesResponse>? rawResponse = await bot.ArchiWebHandler.UrlGetToJsonObjectWithSession<GetOwnedGamesResponse>(new Uri($"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?access_token={bot.AccessToken}&steamid={bot.SteamID}&include_played_free_games=true&skip_unvetted_apps=false")).ConfigureAwait(false);
+            ObjectResponse<JsonElement>? rawResponse = await bot.ArchiWebHandler.UrlGetToJsonObjectWithSession<JsonElement>(new Uri($"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?access_token={bot.AccessToken}&steamid={bot.SteamID}&include_played_free_games=true&skip_unvetted_apps=false")).ConfigureAwait(false);
 
-            GetOwnedGamesResponse? response = rawResponse?.Content;
+            JsonElement? response = rawResponse?.Content;
 
             bot.ArchiLogger.LogGenericInfo(response.ToJsonText());
 
-            List<Game>? games = response?.Response?.Games;
+            GetOwnedGamesResponse? myDeserializedClass = JsonSerializer.Deserialize<GetOwnedGamesResponse>(response.ToJsonText());
 
-            bot.ArchiLogger.LogGenericInfo(games.ToJsonText());
+            bot.ArchiLogger.LogGenericInfo(myDeserializedClass.ToJsonText());
 
-            if (games != null) {
-                bot.ArchiLogger.LogGenericInfo($"Total games found: {games.Count}");
-
-                List<uint> reviews = await LoadingExistingReviews(bot).ConfigureAwait(false);
-
-                bot.ArchiLogger.LogGenericInfo($"Existing reviews found: {reviews.Count}");
-
-                List<uint> gamesIDs = [];
-
-                foreach (Game game in games) {
-                    gamesIDs.Add(game.AppId);
-
-                    if ((game.PlaytimeForever >= 5) && !reviews.Contains(game.AppId)) {
-                        addData.Add(game.AppId);
-                    }
-                }
-
-                foreach (uint subID in reviews) {
-                    if (!gamesIDs.Contains(subID)) {
-                        delData.Add(subID);
-                    }
-                }
-
-                if (AddEnable[bot.BotName] && (addData.Count > 0)) {
-                    bot.ArchiLogger.LogGenericInfo($"Add reviews found: {addData.Count}");
-
-                    AddTimers[bot.BotName].Change(1, -1);
-                }
-
-                if (DelEnable[bot.BotName] && (delData.Count > 0)) {
-                    bot.ArchiLogger.LogGenericInfo($"Del reviews found: {delData.Count}");
-
-                    DelTimers[bot.BotName].Change(1, -1);
-                }
-
-                return;
-            }
-
-            bot.ArchiLogger.LogGenericInfo($"Status: Error | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+            // List<Game>? games = response?.Response?.Games;
+            //
+            //
+            // if (games != null) {
+            //     if (games.Count > 0) {
+            //         bot.ArchiLogger.LogGenericInfo($"Total games found: {games.Count}");
+            //
+            //         List<uint> reviews = await LoadingExistingReviews(bot).ConfigureAwait(false);
+            //
+            //         bot.ArchiLogger.LogGenericInfo($"Existing reviews found: {reviews.Count}");
+            //
+            //         List<uint> gamesIDs = [];
+            //
+            //         foreach (Game game in games) {
+            //             gamesIDs.Add(game.AppId);
+            //
+            //             if ((game.PlaytimeForever >= 5) && !reviews.Contains(game.AppId)) {
+            //                 addData.Add(game.AppId);
+            //             }
+            //         }
+            //
+            //         foreach (uint subID in reviews) {
+            //             if (!gamesIDs.Contains(subID)) {
+            //                 delData.Add(subID);
+            //             }
+            //         }
+            //
+            //         if (AddEnable[bot.BotName] && (addData.Count > 0)) {
+            //             bot.ArchiLogger.LogGenericInfo($"Add reviews found: {addData.Count}");
+            //
+            //             AddTimers[bot.BotName].Change(1, -1);
+            //         }
+            //
+            //         if (DelEnable[bot.BotName] && (delData.Count > 0)) {
+            //             bot.ArchiLogger.LogGenericInfo($"Del reviews found: {delData.Count}");
+            //
+            //             DelTimers[bot.BotName].Change(1, -1);
+            //         }
+            //
+            //         return;
+            //     }
+            // }
+            //
+            // bot.ArchiLogger.LogGenericInfo($"Status: Error | Next run: {DateTime.Now.AddMinutes(timeout):T}");
         } else {
             bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Next run: {DateTime.Now.AddMinutes(timeout):T}");
         }
