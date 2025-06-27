@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace ReviewsManager;
@@ -11,13 +11,12 @@ public class Game {
     public int PlaytimeForever { get; set; }
 }
 
+#pragma warning disable CA1002
 public class Response {
-    [JsonPropertyName("game_count")]
-    public int GameCount { get; set; }
-
     [JsonPropertyName("games")]
-    public Collection<Game>? Games { get; } = [];
+    public List<Game>? Games { get; } = [];
 }
+#pragma warning restore CA1002
 
 public class GetOwnedGamesResponse {
     [JsonPropertyName("response")]

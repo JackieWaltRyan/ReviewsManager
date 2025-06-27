@@ -107,8 +107,6 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                         }
                     }
 
-                    await Task.Delay(1000).ConfigureAwait(false);
-
                     List<uint> newReviewList = await LoadingExistingReviews(bot, page + 1).ConfigureAwait(false);
 
                     reviewList.AddRange(newReviewList);
@@ -141,8 +139,10 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
             GetOwnedGamesResponse? response = rawResponse?.Content;
 
-            if (response?.Response?.Games != null) {
-                bot.ArchiLogger.LogGenericInfo($"Total games found: {response.Response.GameCount}");
+            List<Game>? games = response?.Response?.Games;
+
+            if (games != null) {
+                bot.ArchiLogger.LogGenericInfo($"Total games found: {games.Count}");
 
                 List<uint> reviews = await LoadingExistingReviews(bot).ConfigureAwait(false);
 
@@ -150,7 +150,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
                 List<uint> gamesIDs = [];
 
-                foreach (Game game in response.Response.Games) {
+                foreach (Game game in games) {
                     gamesIDs.Add(game.AppId);
 
                     if ((game.PlaytimeForever >= 5) && !reviews.Contains(game.AppId)) {
