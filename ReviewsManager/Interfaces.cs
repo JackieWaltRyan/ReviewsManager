@@ -16,12 +16,12 @@ public class Response {
     public int GameCount { get; set; }
 
     [JsonPropertyName("games")]
-    public required ReadOnlyCollection<Game> Games { get; set; }
+    public Collection<Game>? Games { get; } = [];
 }
 
 public class GetOwnedGamesResponse {
     [JsonPropertyName("response")]
-    public required Response Response { get; set; }
+    public Response? Response { get; set; }
 }
 
 public class AddReviewResponse {
@@ -29,7 +29,7 @@ public class AddReviewResponse {
     public bool Success { get; set; }
 
     [JsonPropertyName("strError")]
-    public required string StrError { get; set; }
+    public string? StrError { get; set; }
 }
 
 public class AddReviewsConfig {

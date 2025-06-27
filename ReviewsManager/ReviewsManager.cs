@@ -74,6 +74,8 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
             }
 
             if (AddEnable[bot.BotName] || DelEnable[bot.BotName]) {
+                bot.ArchiLogger.LogGenericInfo($"AddReviewsConfig: {AddReviewsConfig[bot.BotName].ToJsonText()}");
+
                 GetTimers[bot.BotName].Change(1, -1);
             }
         }
@@ -139,7 +141,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
             GetOwnedGamesResponse? response = rawResponse?.Content;
 
-            if (response != null) {
+            if (response?.Response?.Games != null) {
                 bot.ArchiLogger.LogGenericInfo($"Total games found: {response.Response.GameCount}");
 
                 List<uint> reviews = await LoadingExistingReviews(bot).ConfigureAwait(false);
