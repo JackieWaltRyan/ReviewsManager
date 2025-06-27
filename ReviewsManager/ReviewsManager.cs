@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using AngleSharp.Dom;
-using ArchiSteamFarm.Core;
 using ArchiSteamFarm.Helpers.Json;
 using ArchiSteamFarm.Plugins.Interfaces;
 using ArchiSteamFarm.Steam;
@@ -87,6 +86,8 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
     private static partial Regex ExistingReviewsRegex();
 
     public static async Task<List<uint>> LoadingExistingReviews(Bot bot, int page = 1) {
+        const int delay = 3000;
+
         try {
             List<uint> reviewList = [];
 
@@ -112,14 +113,14 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                     reviewList.AddRange(newReviewList);
                 }
             } else {
-                await Task.Delay(3000).ConfigureAwait(false);
+                await Task.Delay(delay).ConfigureAwait(false);
 
                 await LoadingExistingReviews(bot, page).ConfigureAwait(false);
             }
 
             return reviewList;
         } catch {
-            await Task.Delay(3000).ConfigureAwait(false);
+            await Task.Delay(delay).ConfigureAwait(false);
 
             return await LoadingExistingReviews(bot, page).ConfigureAwait(false);
         }
@@ -140,8 +141,6 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
             GetOwnedGamesResponse? response = rawResponse?.Content;
 
             List<GetOwnedGamesResponse.Game>? games = response?.Response?.Games;
-
-            bot.ArchiLogger.LogGenericInfo(games.ToJsonText());
 
             if (games != null) {
                 if (games.Count > 0) {
@@ -205,7 +204,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                         { "comment", AddReviewsConfig[bot.BotName].Comment },
                         { "rated_up", AddReviewsConfig[bot.BotName].RatedUp.ToString() },
                         { "is_public", AddReviewsConfig[bot.BotName].IsPublic.ToString() },
-                        { "language", bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? AddReviewsConfig[bot.BotName].Language },
+                        { "language", AddReviewsConfig[bot.BotName].Language },
                         { "received_compensation", AddReviewsConfig[bot.BotName].IsFree ? "1" : "0" },
                         { "disable_comments", AddReviewsConfig[bot.BotName].AllowComments ? "0" : "1" }
                     }, referer: new Uri($"{ArchiWebHandler.SteamStoreURL}/app/{gameId}")
@@ -214,12 +213,26 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                 AddReviewResponse? response = rawResponse?.Content;
 
                 if (response != null) {
-                    bot.ArchiLogger.LogGenericInfo(response.ToJsonText());
+                    if (response.Success) {
+                        addData.RemoveAt(0);
 
-                    return;
+                        bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: OK | Queue: {addData.Count}");
+
+                        AddTimers[bot.BotName].Change(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
+
+                        return;
+                    }
+
+                    if ((response.StrError != null) && response.StrError.Contains("Please try again at a later time.", StringComparison.OrdinalIgnoreCase)) {
+                        timeout = 60;
+
+                        bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: RateLimitExceeded | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+                    } else {
+                        bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: {response.StrError} | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+                    }
+                } else {
+                    bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: Error | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
                 }
-
-                bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: Error | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
             } else {
                 bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
             }
