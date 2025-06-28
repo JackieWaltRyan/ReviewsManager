@@ -29,12 +29,16 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
     public Task OnLoaded() => Task.CompletedTask;
 
-    public Task OnBotInitModules(Bot bot, IReadOnlyDictionary<string, JsonElement>? additionalConfigProperties = null) {
+    public async Task OnBotInitModules(Bot bot, IReadOnlyDictionary<string, JsonElement>? additionalConfigProperties = null) {
         if (additionalConfigProperties != null) {
             AddEnable[bot.BotName] = false;
             DelEnable[bot.BotName] = false;
 
             AddReviewsConfig[bot.BotName] = new AddReviewsConfig();
+
+            await GetTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
+            await AddTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
+            await DelTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
 
             GetTimers[bot.BotName] = new Timer(async e => await GetAllReviews(bot).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
 
@@ -78,8 +82,6 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                 GetTimers[bot.BotName].Change(1, -1);
             }
         }
-
-        return Task.CompletedTask;
     }
 
     [GeneratedRegex("https://steamcommunity\\.com/app/(?<subID>\\d+)", RegexOptions.CultureInvariant)]
