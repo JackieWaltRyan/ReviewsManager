@@ -36,16 +36,22 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
             AddReviewsConfig[bot.BotName] = new AddReviewsConfig();
 
-            if (GetTimers.ContainsKey(bot.BotName)) {
-                await GetTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
+            if (GetTimers.TryGetValue(bot.BotName, out Timer? gettimer)) {
+                await gettimer.DisposeAsync().ConfigureAwait(false);
+
+                bot.ArchiLogger.LogGenericInfo("GetAllReviews Dispose.");
             }
 
-            if (AddTimers.ContainsKey(bot.BotName)) {
-                await AddTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
+            if (AddTimers.TryGetValue(bot.BotName, out Timer? addtimer)) {
+                await addtimer.DisposeAsync().ConfigureAwait(false);
+
+                bot.ArchiLogger.LogGenericInfo("AddReviews Dispose.");
             }
 
-            if (DelTimers.ContainsKey(bot.BotName)) {
-                await DelTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
+            if (DelTimers.TryGetValue(bot.BotName, out Timer? deltimer)) {
+                await deltimer.DisposeAsync().ConfigureAwait(false);
+
+                bot.ArchiLogger.LogGenericInfo("DelReviews Dispose.");
             }
 
             GetTimers[bot.BotName] = new Timer(async e => await GetAllReviews(bot).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
