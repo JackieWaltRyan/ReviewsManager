@@ -252,7 +252,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                     }
 
                     if ((response.StrError != null) && response.StrError.Contains("Please try again at a later time.", StringComparison.OrdinalIgnoreCase)) {
-                        timeout = 60;
+                        timeout = 15;
 
                         bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: RateLimitExceeded | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
                     } else {
