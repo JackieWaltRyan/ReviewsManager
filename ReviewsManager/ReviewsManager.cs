@@ -36,9 +36,17 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
             AddReviewsConfig[bot.BotName] = new AddReviewsConfig();
 
-            await GetTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
-            await AddTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
-            await DelTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
+            if (GetTimers.ContainsKey(bot.BotName)) {
+                await GetTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
+            }
+
+            if (AddTimers.ContainsKey(bot.BotName)) {
+                await AddTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
+            }
+
+            if (DelTimers.ContainsKey(bot.BotName)) {
+                await DelTimers[bot.BotName].DisposeAsync().ConfigureAwait(false);
+            }
 
             GetTimers[bot.BotName] = new Timer(async e => await GetAllReviews(bot).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
 
