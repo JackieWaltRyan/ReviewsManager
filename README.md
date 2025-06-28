@@ -25,6 +25,8 @@ add the following parameter to your bot's configuration file:
 
 #### Add Reviews Configuration
 
+To change this feature, add the following parameter to your bot's config file:
+
 ```json
 {
   "AddReviewsConfig": {
@@ -69,5 +71,21 @@ parameter to your bot's configuration file:
 ```json
 {
   "DelMissingReviews": true
+}
+```
+
+### Reviews Manager Timeout
+
+This is the wait time in hours between re-checks of all games and reviews on the account. That is, this is the moment
+when there are no reviews to delete (or this feature is disabled) and/or there are no reviews to add (or this feature is
+disabled) Reviews Manager will wait 6 hours before re-checking the account. By default, this value is 6 hours. Since a
+large number of requests to Steam servers can be created during the check, and since the appearance of new games on the
+account with a played time of more than 5 minutes (Steam requirement for writing a review) is a rare occurrence, it is
+highly recommended not to set a low value for this parameter! To change this feature, add the following parameter to
+your bot's config file:
+
+```json
+{
+  "ReviewsManagerTimeout": 6
 }
 ```

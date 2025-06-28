@@ -22,6 +22,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
     public Dictionary<string, bool> DelEnable = new();
 
     public Dictionary<string, AddReviewsConfig> AddReviewsConfig = new();
+    public Dictionary<string, uint> ReviewsManagerTimeout = new();
 
     public Dictionary<string, Timer> GetTimers = new();
     public Dictionary<string, Timer> AddTimers = new();
@@ -35,6 +36,8 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
             DelEnable[bot.BotName] = false;
 
             AddReviewsConfig[bot.BotName] = new AddReviewsConfig();
+
+            ReviewsManagerTimeout[bot.BotName] = 6;
 
             if (GetTimers.TryGetValue(bot.BotName, out Timer? gettimer)) {
                 await gettimer.DisposeAsync().ConfigureAwait(false);
@@ -87,11 +90,18 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
                         break;
                     }
+
+                    case "ReviewsManagerTimeout" when configProperty.Value.ValueKind == JsonValueKind.Number: {
+                        ReviewsManagerTimeout[bot.BotName] = configProperty.Value.ToJsonObject<uint>();
+
+                        break;
+                    }
                 }
             }
 
             if (AddEnable[bot.BotName] || DelEnable[bot.BotName]) {
                 bot.ArchiLogger.LogGenericInfo($"AddReviewsConfig: {AddReviewsConfig[bot.BotName].ToJsonText()}");
+                bot.ArchiLogger.LogGenericInfo($"ReviewsManagerTimeout: {ReviewsManagerTimeout[bot.BotName]}");
 
                 GetTimers[bot.BotName].Change(1, -1);
             }
@@ -147,8 +157,6 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
     }
 
     public async Task GetAllReviews(Bot bot) {
-        const uint timeout = 1;
-
         if (bot.IsConnectedAndLoggedOn) {
             List<uint> addData = [];
             List<uint> delData = [];
@@ -202,12 +210,12 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                 }
             }
 
-            bot.ArchiLogger.LogGenericInfo($"Status: Error | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+            bot.ArchiLogger.LogGenericInfo($"Status: Error | Next run: {DateTime.Now.AddMinutes(1):T}");
         } else {
-            bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+            bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Next run: {DateTime.Now.AddMinutes(1):T}");
         }
 
-        GetTimers[bot.BotName].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
+        GetTimers[bot.BotName].Change(TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(-1));
     }
 
     public async Task AddReviews(Bot bot, List<uint> addData) {
@@ -261,17 +269,13 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
             AddTimers[bot.BotName].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
         } else {
-            timeout = 60;
+            bot.ArchiLogger.LogGenericInfo($"Status: QueueIsEmpty | Queue: {addData.Count} | Next run: {DateTime.Now.AddHours(ReviewsManagerTimeout[bot.BotName]):T}");
 
-            bot.ArchiLogger.LogGenericInfo($"Status: QueueIsEmpty | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
-
-            GetTimers[bot.BotName].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
+            GetTimers[bot.BotName].Change(TimeSpan.FromHours(ReviewsManagerTimeout[bot.BotName]), TimeSpan.FromMilliseconds(-1));
         }
     }
 
     public async Task DelReviews(Bot bot, List<uint> delData) {
-        uint timeout = 1;
-
         if (delData.Count > 0) {
             if (bot.IsConnectedAndLoggedOn) {
                 uint gameId = delData[0];
@@ -292,15 +296,13 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                 return;
             }
 
-            bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Queue: {delData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+            bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Queue: {delData.Count} | Next run: {DateTime.Now.AddMinutes(1):T}");
 
-            DelTimers[bot.BotName].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
+            DelTimers[bot.BotName].Change(TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(-1));
         } else {
-            timeout = 60;
+            bot.ArchiLogger.LogGenericInfo($"Status: QueueIsEmpty | Queue: {delData.Count} | Next run: {DateTime.Now.AddHours(ReviewsManagerTimeout[bot.BotName]):T}");
 
-            bot.ArchiLogger.LogGenericInfo($"Status: QueueIsEmpty | Queue: {delData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
-
-            GetTimers[bot.BotName].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
+            GetTimers[bot.BotName].Change(TimeSpan.FromHours(ReviewsManagerTimeout[bot.BotName]), TimeSpan.FromMilliseconds(-1));
         }
     }
 }
