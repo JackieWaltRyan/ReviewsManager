@@ -101,11 +101,15 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
     [GeneratedRegex("https://steamcommunity\\.com/app/(?<subID>\\d+)", RegexOptions.CultureInvariant)]
     private static partial Regex ExistingReviewsRegex();
 
-    public static async Task<List<uint>> LoadingExistingReviews(Bot bot, int page = 1) {
+    public async Task<List<uint>> LoadingExistingReviews(Bot bot, int page = 1) {
         const int delay = 3000;
 
         try {
             List<uint> reviewList = [];
+
+            if (!bot.IsConnectedAndLoggedOn || !GetTimers.ContainsKey(bot.BotName)) {
+                return reviewList;
+            }
 
             bot.ArchiLogger.LogGenericInfo($"Checking existing reviews: Page {page}");
 
@@ -244,6 +248,8 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
                         bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: RateLimitExceeded | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
                     } else {
+                        addData.RemoveAt(0);
+
                         bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: {response.StrError} | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
                     }
                 } else {
