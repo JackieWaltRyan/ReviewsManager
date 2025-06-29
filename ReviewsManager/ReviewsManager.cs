@@ -166,9 +166,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
             ObjectResponse<GetOwnedGamesResponse>? rawResponse = await bot.ArchiWebHandler.UrlGetToJsonObjectWithSession<GetOwnedGamesResponse>(new Uri($"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?access_token={bot.AccessToken}&steamid={bot.SteamID}&include_played_free_games=true&skip_unvetted_apps=false")).ConfigureAwait(false);
 
-            GetOwnedGamesResponse? response = rawResponse?.Content;
-
-            List<GetOwnedGamesResponse.Game>? games = response?.Response?.Games;
+            List<GetOwnedGamesResponse.ResponseData.Game>? games = rawResponse?.Content?.Response?.Games;
 
             if (games != null) {
                 if (games.Count > 0) {
@@ -180,7 +178,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
                     List<uint> gamesIDs = [];
 
-                    foreach (GetOwnedGamesResponse.Game game in games) {
+                    foreach (GetOwnedGamesResponse.ResponseData.Game game in games) {
                         gamesIDs.Add(game.AppId);
 
                         if ((game.PlayTimeForever >= 5) && !reviews.Contains(game.AppId)) {
