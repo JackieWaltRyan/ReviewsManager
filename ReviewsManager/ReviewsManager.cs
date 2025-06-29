@@ -112,8 +112,6 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
     private static partial Regex ExistingReviewsRegex();
 
     public async Task<List<uint>> LoadingExistingReviews(Bot bot, int page = 1) {
-        const int delay = 3000;
-
         try {
             List<uint> reviewList = [];
 
@@ -143,14 +141,14 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                     reviewList.AddRange(newReviewList);
                 }
             } else {
-                await Task.Delay(delay).ConfigureAwait(false);
+                await Task.Delay(3000).ConfigureAwait(false);
 
                 await LoadingExistingReviews(bot, page).ConfigureAwait(false);
             }
 
             return reviewList;
         } catch {
-            await Task.Delay(delay).ConfigureAwait(false);
+            await Task.Delay(3000).ConfigureAwait(false);
 
             return await LoadingExistingReviews(bot, page).ConfigureAwait(false);
         }
