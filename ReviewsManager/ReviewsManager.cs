@@ -169,9 +169,9 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
             List<GetOwnedGamesResponse.ResponseData.Game>? games = rawResponse?.Content?.Response?.Games;
 
             if (games != null) {
-                if (games.Count > 0) {
-                    bot.ArchiLogger.LogGenericInfo($"Total games found: {games.Count}");
+                bot.ArchiLogger.LogGenericInfo($"Total games found: {games.Count}");
 
+                if (games.Count > 0) {
                     List<uint> reviews = await LoadingExistingReviews(bot).ConfigureAwait(false);
 
                     bot.ArchiLogger.LogGenericInfo($"Existing reviews found: {reviews.Count}");
@@ -192,13 +192,13 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                         }
                     }
 
-                    if (AddEnable[bot.BotName] && (addData.Count > 0)) {
+                    if (AddEnable[bot.BotName]) {
                         bot.ArchiLogger.LogGenericInfo($"Add reviews found: {addData.Count}");
 
                         AddTimers[bot.BotName].Change(1, -1);
                     }
 
-                    if (DelEnable[bot.BotName] && (delData.Count > 0)) {
+                    if (DelEnable[bot.BotName]) {
                         bot.ArchiLogger.LogGenericInfo($"Del reviews found: {delData.Count}");
 
                         DelTimers[bot.BotName].Change(1, -1);
@@ -206,6 +206,12 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
                     return;
                 }
+
+                bot.ArchiLogger.LogGenericInfo($"Status: GameListIsEmpty | Next run: {DateTime.Now.AddHours(ReviewsManagerTimeout[bot.BotName]):T}");
+
+                GetTimers[bot.BotName].Change(TimeSpan.FromHours(ReviewsManagerTimeout[bot.BotName]), TimeSpan.FromMilliseconds(-1));
+
+                return;
             }
 
             bot.ArchiLogger.LogGenericInfo($"Status: Error | Next run: {DateTime.Now.AddMinutes(1):T}");
@@ -250,7 +256,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                     }
 
                     if ((response.StrError != null) && response.StrError.Contains("Please try again at a later time.", StringComparison.OrdinalIgnoreCase)) {
-                        timeout = 60;
+                        timeout = 10;
 
                         bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: RateLimitExceeded | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
                     } else {
