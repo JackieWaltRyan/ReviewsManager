@@ -202,6 +202,8 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                             IDocument? languageResponse = rawLanguageResponse?.Content;
 
                             if (languageResponse != null) {
+                                bot.ArchiLogger.LogGenericInfo(languageResponse.Source.Text);
+
                                 MatchCollection languageMatches = GetLanguageRegex().Matches(languageResponse.Source.Text);
 
                                 bot.ArchiLogger.LogGenericInfo("languageMatches: " + languageMatches.ToJsonText());
