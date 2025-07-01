@@ -197,23 +197,23 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                         string language = AddReviewsConfig[bot.BotName].Language;
 
                         if (language == "auto") {
-                            HtmlDocumentResponse? rawLanguageResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamStoreURL}/account/languagepreferences")).ConfigureAwait(false);
+                            try {
+                                HtmlDocumentResponse? rawLanguageResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamStoreURL}/account/languagepreferences")).ConfigureAwait(false);
 
-                            IDocument? languageResponse = rawLanguageResponse?.Content;
+                                IDocument? languageResponse = rawLanguageResponse?.Content;
 
-                            if (languageResponse != null) {
-                                MatchCollection languageMatches = GetLanguageRegex().Matches(languageResponse.Source.Text);
+                                if (languageResponse != null) {
+                                    MatchCollection languageMatches = GetLanguageRegex().Matches(languageResponse.Source.Text);
 
-                                bot.ArchiLogger.LogGenericInfo("languageMatches: " + languageMatches.ToJsonText());
-
-                                if (languageMatches.Count > 0) {
-                                    bot.ArchiLogger.LogGenericInfo("languageID: " + languageMatches[0].Groups["languageID"].Value);
-
-                                    language = languageMatches[0].Groups["languageID"].Value;
+                                    if (languageMatches.Count > 0) {
+                                        language = languageMatches[0].Groups["languageID"].Value;
+                                    } else {
+                                        language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
+                                    }
                                 } else {
                                     language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
                                 }
-                            } else {
+                            } catch {
                                 language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
                             }
 
