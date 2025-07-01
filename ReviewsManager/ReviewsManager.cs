@@ -197,31 +197,27 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                         string language = AddReviewsConfig[bot.BotName].Language;
 
                         if (language == "auto") {
-                            bot.ArchiLogger.LogGenericInfo(bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "GetCookies Null");
+                            bot.ArchiLogger.LogGenericInfo("GetCookieValue: " + bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language"));
 
-                            try {
-                                HtmlDocumentResponse? rawLanguageResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamStoreURL}/account/languagepreferences")).ConfigureAwait(false);
+                            HtmlDocumentResponse? rawLanguageResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamStoreURL}/account/languagepreferences")).ConfigureAwait(false);
 
-                                IDocument? languageResponse = rawLanguageResponse?.Content;
+                            IDocument? languageResponse = rawLanguageResponse?.Content;
 
-                                bot.ArchiLogger.LogGenericInfo(languageResponse.ToJsonText());
+                            bot.ArchiLogger.LogGenericInfo("languageResponse: " + languageResponse.ToJsonText());
 
-                                if (languageResponse != null) {
-                                    MatchCollection languageMatches = GetLanguageRegex().Matches(languageResponse.Source.Text);
+                            if (languageResponse != null) {
+                                MatchCollection languageMatches = GetLanguageRegex().Matches(languageResponse.Source.Text);
 
-                                    bot.ArchiLogger.LogGenericInfo(languageMatches.ToString() ?? "languageMatches Null");
+                                bot.ArchiLogger.LogGenericInfo("languageMatches: " + languageMatches.ToJsonText());
 
-                                    if (languageMatches.Count > 0) {
-                                        bot.ArchiLogger.LogGenericInfo(languageMatches[0].Groups["languageID"].Value);
+                                if (languageMatches.Count > 0) {
+                                    bot.ArchiLogger.LogGenericInfo("languageID: " + languageMatches[0].Groups["languageID"].Value);
 
-                                        language = languageMatches[0].Groups["languageID"].Value;
-                                    } else {
-                                        language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
-                                    }
+                                    language = languageMatches[0].Groups["languageID"].Value;
                                 } else {
                                     language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
                                 }
-                            } catch {
+                            } else {
                                 language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
                             }
 
