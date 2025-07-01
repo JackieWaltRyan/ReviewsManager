@@ -197,15 +197,19 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                         string language = AddReviewsConfig[bot.BotName].Language;
 
                         if (language == "auto") {
-                            bot.ArchiLogger.LogGenericInfo(bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookies(ArchiWebHandler.SteamStoreURL).ToString() ?? "GetCookies Null");
+                            bot.ArchiLogger.LogGenericInfo(bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "GetCookies Null");
 
                             try {
                                 HtmlDocumentResponse? rawLanguageResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamStoreURL}/account/languagepreferences")).ConfigureAwait(false);
 
                                 IDocument? languageResponse = rawLanguageResponse?.Content;
 
+                                bot.ArchiLogger.LogGenericInfo(languageResponse.ToJsonText());
+
                                 if (languageResponse != null) {
                                     MatchCollection languageMatches = GetLanguageRegex().Matches(languageResponse.Source.Text);
+
+                                    bot.ArchiLogger.LogGenericInfo(languageMatches.ToString() ?? "languageMatches Null");
 
                                     if (languageMatches.Count > 0) {
                                         bot.ArchiLogger.LogGenericInfo(languageMatches[0].Groups["languageID"].Value);
