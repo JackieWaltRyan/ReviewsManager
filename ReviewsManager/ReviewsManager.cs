@@ -109,7 +109,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
         }
     }
 
-    [GeneratedRegex("https://steamcommunity\\.com/app/(?<subID>\\d+)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("""https://steamcommunity\.com/app/(?<subID>\d+)""", RegexOptions.CultureInvariant)]
     private static partial Regex ExistingReviewsRegex();
 
     [GeneratedRegex("""g_strCurrentLanguage = "(?<languageID>\w+)";""", RegexOptions.CultureInvariant)]
@@ -311,23 +311,27 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
             if (bot.IsConnectedAndLoggedOn) {
                 uint gameId = delData[0];
 
-                await bot.ArchiWebHandler.UrlPostWithSession(
-                    new Uri($"{ArchiWebHandler.SteamCommunityURL}/profiles/{bot.SteamID}/recommended/"), data: new Dictionary<string, string>(9) {
+                bool response = await bot.ArchiWebHandler.UrlPostWithSession(
+                    new Uri($"{ArchiWebHandler.SteamCommunityURL}/profiles/{bot.SteamID}/recommended/"), data: new Dictionary<string, string>(3) {
                         { "action", "delete" },
                         { "appid", $"{gameId}" }
                     }, referer: new Uri($"{ArchiWebHandler.SteamCommunityURL}/profiles/{bot.SteamID}/recommended/{gameId}/")
                 ).ConfigureAwait(false);
 
-                delData.RemoveAt(0);
+                if (response) {
+                    delData.RemoveAt(0);
 
-                bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: OK | Queue: {delData.Count}");
+                    bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: OK | Queue: {delData.Count}");
 
-                DelTimers[bot.BotName].Change(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
+                    DelTimers[bot.BotName].Change(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
 
-                return;
+                    return;
+                }
+
+                bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: Error | Queue: {delData.Count} | Next run: {DateTime.Now.AddMinutes(1):T}");
+            } else {
+                bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Queue: {delData.Count} | Next run: {DateTime.Now.AddMinutes(1):T}");
             }
-
-            bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Queue: {delData.Count} | Next run: {DateTime.Now.AddMinutes(1):T}");
 
             DelTimers[bot.BotName].Change(TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(-1));
         } else {
