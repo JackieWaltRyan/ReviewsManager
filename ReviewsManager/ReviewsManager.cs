@@ -112,7 +112,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
     [GeneratedRegex("https://steamcommunity\\.com/app/(?<subID>\\d+)", RegexOptions.CultureInvariant)]
     private static partial Regex ExistingReviewsRegex();
 
-    [GeneratedRegex("""g_strCurrentLanguage = "(?<languageID>\w+)"""", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("""g_strCurrentLanguage = "(?<languageID>\w+)";""", RegexOptions.CultureInvariant)]
     private static partial Regex GetLanguageRegex();
 
     public async Task<List<uint>> LoadingExistingReviews(Bot bot, int page = 1) {
