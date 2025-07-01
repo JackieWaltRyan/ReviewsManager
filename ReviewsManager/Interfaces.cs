@@ -14,7 +14,7 @@ public class AddReviewsConfig {
     public bool IsPublic { get; set; } = true;
 
     [JsonInclude]
-    public string Language { get; set; } = "english";
+    public string Language { get; set; } = "auto";
 
     [JsonInclude]
     public bool IsFree { get; set; }

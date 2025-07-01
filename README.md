@@ -33,7 +33,7 @@ To change this feature, add the following parameter to your bot's config file:
     "Comment": "⭐⭐⭐⭐⭐",
     "RatedUp": true,
     "IsPublic": true,
-    "Language": "english",
+    "Language": "auto",
     "IsFree": false,
     "AllowComments": true
   }
@@ -50,10 +50,12 @@ To change this feature, add the following parameter to your bot's config file:
   Friends only.
 
 
-- `Language` - `string` type with default value of `english`. The value of the `Language` field. Acceptable values:
+- `Language` - `string` type with default value of `auto`. The value of the `Language` field. Acceptable values: `auto`,
   `schinese`, `tchinese`, `japanese`, `koreana`, `thai`, `bulgarian`, `czech`, `danish`, `german`, `english`, `spanish`,
   `latam`, `greek`, `french`, `italian`, `indonesian`, `hungarian`, `dutch`, `norwegian`, `polish`, `portuguese`,
-  `brazilian`, `romanian`, `russian`, `finnish`, `swedish`, `turkish`, `vietnamese`, `ukrainian`.
+  `brazilian`, `romanian`, `russian`, `finnish`, `swedish`, `turkish`, `vietnamese`, `ukrainian`. If the value is set to
+  `auto`, the plugin will use the current account language if it can detect it. If the account language cannot be
+  detected, the value `english` will be used.
 
 
 - `IsFree` - `bool` type with default value of `false`. The value of the

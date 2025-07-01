@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using AngleSharp.Dom;
+using ArchiSteamFarm.Core;
 using ArchiSteamFarm.Helpers.Json;
 using ArchiSteamFarm.Plugins.Interfaces;
 using ArchiSteamFarm.Steam;
@@ -227,6 +228,12 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
             if (bot.IsConnectedAndLoggedOn) {
                 uint gameId = addData[0];
 
+                string language = AddReviewsConfig[bot.BotName].Language;
+
+                if (language == "auto") {
+                    language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
+                }
+
                 ObjectResponse<AddReviewResponse>? rawResponse = await bot.ArchiWebHandler.UrlPostToJsonObjectWithSession<AddReviewResponse>(
                     new Uri($"{ArchiWebHandler.SteamStoreURL}/friends/recommendgame?l=english"), data: new Dictionary<string, string>(9) {
                         { "appid", $"{gameId}" },
@@ -234,7 +241,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                         { "comment", AddReviewsConfig[bot.BotName].Comment },
                         { "rated_up", AddReviewsConfig[bot.BotName].RatedUp.ToString() },
                         { "is_public", AddReviewsConfig[bot.BotName].IsPublic.ToString() },
-                        { "language", AddReviewsConfig[bot.BotName].Language },
+                        { "language", language },
                         { "received_compensation", AddReviewsConfig[bot.BotName].IsFree ? "1" : "0" },
                         { "disable_comments", AddReviewsConfig[bot.BotName].AllowComments ? "0" : "1" }
                     }, referer: new Uri($"{ArchiWebHandler.SteamStoreURL}/app/{gameId}")
