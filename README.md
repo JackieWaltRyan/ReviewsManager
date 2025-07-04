@@ -24,7 +24,8 @@ Default configuration. To change this feature, add the following parameter to yo
       "IsPublic": true,
       "Language": "auto",
       "IsFree": false,
-      "AllowComments": true
+      "AllowComments": true,
+      "BlackList": []
     },
     "DelReviews": false,
     "Timeout": 6
@@ -49,6 +50,10 @@ Default configuration. To change this feature, add the following parameter to yo
     - `IsFree` - `bool` type with default value of `false`. The value of the
       `Check this box if you received this product for free` field.<br><br>
     - `AllowComments` - `bool` type with default value of `true`. The value of the `Allow Comments` field.<br><br>
+    - `BlackList` - `List<uint>` type with default value of being empty. List of `appIDs` reviews for which should never
+      be published, even if possible. The main purpose is that there are some games in Steam for which reviews cannot be
+      published, despite the fact that all the conditions for them are met. To prevent the plugin from sending
+      unnecessary requests to the server every time and wasting time, you can disable such games in this list.<br><br>
 - `DelReviews` - `bool` type with default value of `false`. If `true`, check the list of all games on the account and
   delete all existing reviews for games that are no longer on the account (mainly applies to free games or demos, which
   can be deleted from the library).<br><br>
