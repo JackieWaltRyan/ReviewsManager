@@ -156,7 +156,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                     foreach (GetOwnedGamesResponse.ResponseData.Game game in games) {
                         gamesIDs.Add(game.AppId);
 
-                        if ((game.PlayTimeForever >= 5) && !reviews.Contains(game.AppId)) {
+                        if ((game.PlayTimeForever >= 5) && !reviews.Contains(game.AppId) && !ReviewsManagerConfig[bot.BotName].AddReviewsConfig.BlackList.Contains(game.AppId)) {
                             addData.Add(game.AppId);
                         }
                     }
@@ -168,9 +168,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                     }
 
                     if (ReviewsManagerConfig[bot.BotName].AddReviews) {
-                        string language = ReviewsManagerConfig[bot.BotName].AddReviewsConfig.Language;
-
-                        if (language == "auto") {
+                        if (ReviewsManagerConfig[bot.BotName].AddReviewsConfig.Language == "auto") {
                             try {
                                 HtmlDocumentResponse? rawLanguageResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamStoreURL}/account/languagepreferences")).ConfigureAwait(false);
 
@@ -180,18 +178,16 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                                     MatchCollection languageMatches = GetLanguageRegex().Matches(languageResponse);
 
                                     if (languageMatches.Count > 0) {
-                                        language = languageMatches[0].Groups["languageID"].Value;
+                                        ReviewsManagerConfig[bot.BotName].AddReviewsConfig.Language = languageMatches[0].Groups["languageID"].Value;
                                     } else {
-                                        language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
+                                        ReviewsManagerConfig[bot.BotName].AddReviewsConfig.Language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
                                     }
                                 } else {
-                                    language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
+                                    ReviewsManagerConfig[bot.BotName].AddReviewsConfig.Language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
                                 }
                             } catch {
-                                language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
+                                ReviewsManagerConfig[bot.BotName].AddReviewsConfig.Language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
                             }
-
-                            ReviewsManagerConfig[bot.BotName].AddReviewsConfig.Language = language;
                         }
 
                         bot.ArchiLogger.LogGenericInfo($"Add reviews found: {addData.Count}");
@@ -228,20 +224,18 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
         if (addData.Count > 0) {
             if (bot.IsConnectedAndLoggedOn) {
-                ReviewsManagerConfig.ReviewsConfig config = ReviewsManagerConfig[bot.BotName].AddReviewsConfig;
-
                 uint gameId = addData[0];
 
                 ObjectResponse<AddReviewResponse>? rawResponse = await bot.ArchiWebHandler.UrlPostToJsonObjectWithSession<AddReviewResponse>(
                     new Uri($"{ArchiWebHandler.SteamStoreURL}/friends/recommendgame?l=english"), data: new Dictionary<string, string>(9) {
                         { "appid", $"{gameId}" },
                         { "steamworksappid", $"{gameId}" },
-                        { "comment", config.Comment },
-                        { "rated_up", config.RatedUp.ToString() },
-                        { "is_public", config.IsPublic.ToString() },
-                        { "language", config.Language },
-                        { "received_compensation", config.IsFree ? "1" : "0" },
-                        { "disable_comments", config.AllowComments ? "0" : "1" }
+                        { "comment", ReviewsManagerConfig[bot.BotName].AddReviewsConfig.Comment },
+                        { "rated_up", ReviewsManagerConfig[bot.BotName].AddReviewsConfig.RatedUp.ToString() },
+                        { "is_public", ReviewsManagerConfig[bot.BotName].AddReviewsConfig.IsPublic.ToString() },
+                        { "language", ReviewsManagerConfig[bot.BotName].AddReviewsConfig.Language },
+                        { "received_compensation", ReviewsManagerConfig[bot.BotName].AddReviewsConfig.IsFree ? "1" : "0" },
+                        { "disable_comments", ReviewsManagerConfig[bot.BotName].AddReviewsConfig.AllowComments ? "0" : "1" }
                     }, referer: new Uri($"{ArchiWebHandler.SteamStoreURL}/app/{gameId}")
                 ).ConfigureAwait(false);
 
