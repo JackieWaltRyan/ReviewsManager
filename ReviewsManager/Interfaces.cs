@@ -3,27 +3,44 @@ using System.Text.Json.Serialization;
 
 namespace ReviewsManager;
 
-public class AddReviewsConfig {
+internal sealed record ReviewsManagerConfig {
     [JsonInclude]
-    public string Comment { get; set; } = "⭐⭐⭐⭐⭐";
+    public bool AddReviews { get; set; }
 
     [JsonInclude]
-    public bool RatedUp { get; set; } = true;
+    public ReviewsConfig AddReviewsConfig { get; set; } = new();
+
+    internal sealed record ReviewsConfig {
+        [JsonInclude]
+        public string Comment { get; set; } = "⭐⭐⭐⭐⭐";
+
+        [JsonInclude]
+        public bool RatedUp { get; set; } = true;
+
+        [JsonInclude]
+        public bool IsPublic { get; set; } = true;
+
+        [JsonInclude]
+        public string Language { get; set; } = "auto";
+
+        [JsonInclude]
+        public bool IsFree { get; set; }
+
+        [JsonInclude]
+        public bool AllowComments { get; set; } = true;
+
+        [JsonConstructor]
+        public ReviewsConfig() { }
+    }
 
     [JsonInclude]
-    public bool IsPublic { get; set; } = true;
+    public bool DelReviews { get; set; }
 
     [JsonInclude]
-    public string Language { get; set; } = "auto";
-
-    [JsonInclude]
-    public bool IsFree { get; set; }
-
-    [JsonInclude]
-    public bool AllowComments { get; set; } = true;
+    public uint Timeout { get; set; } = 6;
 
     [JsonConstructor]
-    public AddReviewsConfig() { }
+    public ReviewsManagerConfig() { }
 }
 
 internal sealed record GetOwnedGamesResponse {

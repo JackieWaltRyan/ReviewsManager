@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Dom;
 using ArchiSteamFarm.Core;
 using ArchiSteamFarm.Helpers.Json;
 using ArchiSteamFarm.Plugins.Interfaces;
@@ -19,92 +18,67 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
     public string RepositoryName => "JackieWaltRyan/ReviewsManager";
     public Version Version => typeof(ReviewsManager).Assembly.GetName().Version ?? throw new InvalidOperationException(nameof(Version));
 
-    public Dictionary<string, bool> AddEnable = new();
-    public Dictionary<string, bool> DelEnable = new();
-
-    public Dictionary<string, AddReviewsConfig> AddReviewsConfig = new();
-    public Dictionary<string, uint> ReviewsManagerTimeout = new();
-
-    public Dictionary<string, Timer> GetTimers = new();
-    public Dictionary<string, Timer> AddTimers = new();
-    public Dictionary<string, Timer> DelTimers = new();
+    public Dictionary<string, ReviewsManagerConfig> ReviewsManagerConfig = new();
+    public Dictionary<string, Dictionary<string, Timer>> ReviewsManagerTimers = new();
 
     public Task OnLoaded() => Task.CompletedTask;
 
     public async Task OnBotInitModules(Bot bot, IReadOnlyDictionary<string, JsonElement>? additionalConfigProperties = null) {
         if (additionalConfigProperties != null) {
-            AddEnable[bot.BotName] = false;
-            DelEnable[bot.BotName] = false;
+            if (ReviewsManagerTimers.TryGetValue(bot.BotName, out Dictionary<string, Timer>? dict)) {
+                foreach (KeyValuePair<string, Timer> timers in dict) {
+                    switch (timers.Key) {
+                        case "GetAllReviews": {
+                            await timers.Value.DisposeAsync().ConfigureAwait(false);
 
-            AddReviewsConfig[bot.BotName] = new AddReviewsConfig();
+                            bot.ArchiLogger.LogGenericInfo("GetAllReviews Dispose.");
 
-            ReviewsManagerTimeout[bot.BotName] = 6;
+                            break;
+                        }
 
-            if (GetTimers.TryGetValue(bot.BotName, out Timer? gettimer)) {
-                await gettimer.DisposeAsync().ConfigureAwait(false);
+                        case "AddReviews": {
+                            await timers.Value.DisposeAsync().ConfigureAwait(false);
 
-                bot.ArchiLogger.LogGenericInfo("GetAllReviews Dispose.");
+                            bot.ArchiLogger.LogGenericInfo("AddReviews Dispose.");
+
+                            break;
+                        }
+
+                        case "DelReviews": {
+                            await timers.Value.DisposeAsync().ConfigureAwait(false);
+
+                            bot.ArchiLogger.LogGenericInfo("DelReviews Dispose.");
+
+                            break;
+                        }
+                    }
+                }
             }
 
-            if (AddTimers.TryGetValue(bot.BotName, out Timer? addtimer)) {
-                await addtimer.DisposeAsync().ConfigureAwait(false);
+            ReviewsManagerTimers[bot.BotName] = new Dictionary<string, Timer> {
+                { "GetAllReviews", new Timer(async e => await GetAllReviews(bot).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite) }
+            };
 
-                bot.ArchiLogger.LogGenericInfo("AddReviews Dispose.");
-            }
-
-            if (DelTimers.TryGetValue(bot.BotName, out Timer? deltimer)) {
-                await deltimer.DisposeAsync().ConfigureAwait(false);
-
-                bot.ArchiLogger.LogGenericInfo("DelReviews Dispose.");
-            }
-
-            GetTimers[bot.BotName] = new Timer(async e => await GetAllReviews(bot).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
+            ReviewsManagerConfig[bot.BotName] = new ReviewsManagerConfig();
 
             foreach (KeyValuePair<string, JsonElement> configProperty in additionalConfigProperties) {
                 switch (configProperty.Key) {
-                    case "AddMissingReviews" when configProperty.Value.ValueKind is JsonValueKind.True or JsonValueKind.False: {
-                        bool isEnabled = configProperty.Value.GetBoolean();
-
-                        bot.ArchiLogger.LogGenericInfo($"AddMissingReviews: {isEnabled}");
-
-                        AddEnable[bot.BotName] = isEnabled;
-
-                        break;
-                    }
-
-                    case "AddReviewsConfig": {
-                        AddReviewsConfig? config = configProperty.Value.ToJsonObject<AddReviewsConfig>();
+                    case "ReviewsManagerConfig": {
+                        ReviewsManagerConfig? config = configProperty.Value.ToJsonObject<ReviewsManagerConfig>();
 
                         if (config != null) {
-                            AddReviewsConfig[bot.BotName] = config;
+                            ReviewsManagerConfig[bot.BotName] = config;
                         }
-
-                        break;
-                    }
-
-                    case "DelMissingReviews" when configProperty.Value.ValueKind is JsonValueKind.True or JsonValueKind.False: {
-                        bool isEnabled = configProperty.Value.GetBoolean();
-
-                        bot.ArchiLogger.LogGenericInfo($"DelMissingReviews: {isEnabled}");
-
-                        DelEnable[bot.BotName] = isEnabled;
-
-                        break;
-                    }
-
-                    case "ReviewsManagerTimeout" when configProperty.Value.ValueKind == JsonValueKind.Number: {
-                        ReviewsManagerTimeout[bot.BotName] = configProperty.Value.ToJsonObject<uint>();
 
                         break;
                     }
                 }
             }
 
-            if (AddEnable[bot.BotName] || DelEnable[bot.BotName]) {
-                bot.ArchiLogger.LogGenericInfo($"AddReviewsConfig: {AddReviewsConfig[bot.BotName].ToJsonText()}");
-                bot.ArchiLogger.LogGenericInfo($"ReviewsManagerTimeout: {ReviewsManagerTimeout[bot.BotName]}");
+            if (ReviewsManagerConfig[bot.BotName].AddReviews || ReviewsManagerConfig[bot.BotName].DelReviews) {
+                bot.ArchiLogger.LogGenericInfo($"ReviewsManagerConfig: {ReviewsManagerConfig[bot.BotName].ToJsonText()}");
 
-                GetTimers[bot.BotName].Change(1, -1);
+                ReviewsManagerTimers[bot.BotName]["GetAllReviews"].Change(1, -1);
             }
         }
     }
@@ -112,14 +86,11 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
     [GeneratedRegex("""https://steamcommunity\.com/app/(?<subID>\d+)""", RegexOptions.CultureInvariant)]
     private static partial Regex ExistingReviewsRegex();
 
-    [GeneratedRegex("""g_strCurrentLanguage = "(?<languageID>\w+)";""", RegexOptions.CultureInvariant)]
-    private static partial Regex GetLanguageRegex();
-
     public async Task<List<uint>> LoadingExistingReviews(Bot bot, int page = 1) {
         try {
             List<uint> reviewList = [];
 
-            if (!bot.IsConnectedAndLoggedOn || !GetTimers.ContainsKey(bot.BotName)) {
+            if (!bot.IsConnectedAndLoggedOn || !ReviewsManagerTimers[bot.BotName].ContainsKey("GetAllReviews")) {
                 return reviewList;
             }
 
@@ -127,10 +98,10 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
             HtmlDocumentResponse? rawResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamCommunityURL}/profiles/{bot.SteamID}/recommended/?p={page}")).ConfigureAwait(false);
 
-            IDocument? response = rawResponse?.Content;
+            string? response = rawResponse?.Content?.Source?.Text;
 
             if (response != null) {
-                MatchCollection existingReviewsMatches = ExistingReviewsRegex().Matches(response.Source.Text);
+                MatchCollection existingReviewsMatches = ExistingReviewsRegex().Matches(response);
 
                 if (existingReviewsMatches.Count > 0) {
                     foreach (Match match in existingReviewsMatches) {
@@ -157,13 +128,16 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
         }
     }
 
+    [GeneratedRegex("""g_strCurrentLanguage = "(?<languageID>\w+)";""", RegexOptions.CultureInvariant)]
+    private static partial Regex GetLanguageRegex();
+
     public async Task GetAllReviews(Bot bot) {
         if (bot.IsConnectedAndLoggedOn) {
             List<uint> addData = [];
             List<uint> delData = [];
 
-            AddTimers[bot.BotName] = new Timer(async e => await AddReviews(bot, addData).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
-            DelTimers[bot.BotName] = new Timer(async e => await DelReviews(bot, delData).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
+            ReviewsManagerTimers[bot.BotName]["AddReviews"] = new Timer(async e => await AddReviews(bot, addData).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
+            ReviewsManagerTimers[bot.BotName]["DelReviews"] = new Timer(async e => await DelReviews(bot, delData).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite);
 
             ObjectResponse<GetOwnedGamesResponse>? rawResponse = await bot.ArchiWebHandler.UrlGetToJsonObjectWithSession<GetOwnedGamesResponse>(new Uri($"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?access_token={bot.AccessToken}&steamid={bot.SteamID}&include_played_free_games=true&skip_unvetted_apps=false")).ConfigureAwait(false);
 
@@ -193,17 +167,17 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                         }
                     }
 
-                    if (AddEnable[bot.BotName]) {
-                        string language = AddReviewsConfig[bot.BotName].Language;
+                    if (ReviewsManagerConfig[bot.BotName].AddReviews) {
+                        string language = ReviewsManagerConfig[bot.BotName].AddReviewsConfig.Language;
 
                         if (language == "auto") {
                             try {
                                 HtmlDocumentResponse? rawLanguageResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamStoreURL}/account/languagepreferences")).ConfigureAwait(false);
 
-                                IDocument? languageResponse = rawLanguageResponse?.Content;
+                                string? languageResponse = rawLanguageResponse?.Content?.Source.Text;
 
                                 if (languageResponse != null) {
-                                    MatchCollection languageMatches = GetLanguageRegex().Matches(languageResponse.Source.Text);
+                                    MatchCollection languageMatches = GetLanguageRegex().Matches(languageResponse);
 
                                     if (languageMatches.Count > 0) {
                                         language = languageMatches[0].Groups["languageID"].Value;
@@ -217,26 +191,26 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                                 language = bot.ArchiWebHandler.WebBrowser.CookieContainer.GetCookieValue(ArchiWebHandler.SteamStoreURL, "Steam_Language") ?? "english";
                             }
 
-                            AddReviewsConfig[bot.BotName].Language = language;
+                            ReviewsManagerConfig[bot.BotName].AddReviewsConfig.Language = language;
                         }
 
                         bot.ArchiLogger.LogGenericInfo($"Add reviews found: {addData.Count}");
 
-                        AddTimers[bot.BotName].Change(1, -1);
+                        ReviewsManagerTimers[bot.BotName]["AddReviews"].Change(1, -1);
                     }
 
-                    if (DelEnable[bot.BotName]) {
+                    if (ReviewsManagerConfig[bot.BotName].DelReviews) {
                         bot.ArchiLogger.LogGenericInfo($"Del reviews found: {delData.Count}");
 
-                        DelTimers[bot.BotName].Change(1, -1);
+                        ReviewsManagerTimers[bot.BotName]["DelReviews"].Change(1, -1);
                     }
 
                     return;
                 }
 
-                bot.ArchiLogger.LogGenericInfo($"Status: GameListIsEmpty | Next run: {DateTime.Now.AddHours(ReviewsManagerTimeout[bot.BotName]):T}");
+                bot.ArchiLogger.LogGenericInfo($"Status: GameListIsEmpty | Next run: {DateTime.Now.AddHours(ReviewsManagerConfig[bot.BotName].Timeout):T}");
 
-                GetTimers[bot.BotName].Change(TimeSpan.FromHours(ReviewsManagerTimeout[bot.BotName]), TimeSpan.FromMilliseconds(-1));
+                ReviewsManagerTimers[bot.BotName]["GetAllReviews"].Change(TimeSpan.FromHours(ReviewsManagerConfig[bot.BotName].Timeout), TimeSpan.FromMilliseconds(-1));
 
                 return;
             }
@@ -246,7 +220,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
             bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Next run: {DateTime.Now.AddMinutes(1):T}");
         }
 
-        GetTimers[bot.BotName].Change(TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(-1));
+        ReviewsManagerTimers[bot.BotName]["GetAllReviews"].Change(TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(-1));
     }
 
     public async Task AddReviews(Bot bot, List<uint> addData) {
@@ -254,18 +228,20 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
         if (addData.Count > 0) {
             if (bot.IsConnectedAndLoggedOn) {
+                ReviewsManagerConfig.ReviewsConfig config = ReviewsManagerConfig[bot.BotName].AddReviewsConfig;
+
                 uint gameId = addData[0];
 
                 ObjectResponse<AddReviewResponse>? rawResponse = await bot.ArchiWebHandler.UrlPostToJsonObjectWithSession<AddReviewResponse>(
                     new Uri($"{ArchiWebHandler.SteamStoreURL}/friends/recommendgame?l=english"), data: new Dictionary<string, string>(9) {
                         { "appid", $"{gameId}" },
                         { "steamworksappid", $"{gameId}" },
-                        { "comment", AddReviewsConfig[bot.BotName].Comment },
-                        { "rated_up", AddReviewsConfig[bot.BotName].RatedUp.ToString() },
-                        { "is_public", AddReviewsConfig[bot.BotName].IsPublic.ToString() },
-                        { "language", AddReviewsConfig[bot.BotName].Language },
-                        { "received_compensation", AddReviewsConfig[bot.BotName].IsFree ? "1" : "0" },
-                        { "disable_comments", AddReviewsConfig[bot.BotName].AllowComments ? "0" : "1" }
+                        { "comment", config.Comment },
+                        { "rated_up", config.RatedUp.ToString() },
+                        { "is_public", config.IsPublic.ToString() },
+                        { "language", config.Language },
+                        { "received_compensation", config.IsFree ? "1" : "0" },
+                        { "disable_comments", config.AllowComments ? "0" : "1" }
                     }, referer: new Uri($"{ArchiWebHandler.SteamStoreURL}/app/{gameId}")
                 ).ConfigureAwait(false);
 
@@ -277,7 +253,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
                         bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: OK | Queue: {addData.Count}");
 
-                        AddTimers[bot.BotName].Change(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
+                        ReviewsManagerTimers[bot.BotName]["AddReviews"].Change(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
 
                         return;
                     }
@@ -298,11 +274,11 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                 bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Queue: {addData.Count} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
             }
 
-            AddTimers[bot.BotName].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
+            ReviewsManagerTimers[bot.BotName]["AddReviews"].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
         } else {
-            bot.ArchiLogger.LogGenericInfo($"Status: QueueIsEmpty | Queue: {addData.Count} | Next run: {DateTime.Now.AddHours(ReviewsManagerTimeout[bot.BotName]):T}");
+            bot.ArchiLogger.LogGenericInfo($"Status: QueueIsEmpty | Queue: {addData.Count} | Next run: {DateTime.Now.AddHours(ReviewsManagerConfig[bot.BotName].Timeout):T}");
 
-            GetTimers[bot.BotName].Change(TimeSpan.FromHours(ReviewsManagerTimeout[bot.BotName]), TimeSpan.FromMilliseconds(-1));
+            ReviewsManagerTimers[bot.BotName]["GetAllReviews"].Change(TimeSpan.FromHours(ReviewsManagerConfig[bot.BotName].Timeout), TimeSpan.FromMilliseconds(-1));
         }
     }
 
@@ -323,7 +299,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
                     bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: OK | Queue: {delData.Count}");
 
-                    DelTimers[bot.BotName].Change(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
+                    ReviewsManagerTimers[bot.BotName]["DelReviews"].Change(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
 
                     return;
                 }
@@ -333,11 +309,11 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                 bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Queue: {delData.Count} | Next run: {DateTime.Now.AddMinutes(1):T}");
             }
 
-            DelTimers[bot.BotName].Change(TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(-1));
+            ReviewsManagerTimers[bot.BotName]["DelReviews"].Change(TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(-1));
         } else {
-            bot.ArchiLogger.LogGenericInfo($"Status: QueueIsEmpty | Queue: {delData.Count} | Next run: {DateTime.Now.AddHours(ReviewsManagerTimeout[bot.BotName]):T}");
+            bot.ArchiLogger.LogGenericInfo($"Status: QueueIsEmpty | Queue: {delData.Count} | Next run: {DateTime.Now.AddHours(ReviewsManagerConfig[bot.BotName].Timeout):T}");
 
-            GetTimers[bot.BotName].Change(TimeSpan.FromHours(ReviewsManagerTimeout[bot.BotName]), TimeSpan.FromMilliseconds(-1));
+            ReviewsManagerTimers[bot.BotName]["GetAllReviews"].Change(TimeSpan.FromHours(ReviewsManagerConfig[bot.BotName].Timeout), TimeSpan.FromMilliseconds(-1));
         }
     }
 }
