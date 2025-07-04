@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 
 namespace ReviewsManager;
@@ -31,7 +30,7 @@ internal sealed record ReviewsManagerConfig {
         public bool AllowComments { get; set; } = true;
 
         [JsonInclude]
-        public Collection<uint> BlackList { get; } = [];
+        public List<uint> BlackList { get; set; } = [];
 
         [JsonConstructor]
         public ReviewsConfig() { }
