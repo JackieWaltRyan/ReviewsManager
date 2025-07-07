@@ -86,7 +86,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
     [GeneratedRegex("""https://steamcommunity\.com/app/(?<subID>\d+)""", RegexOptions.CultureInvariant)]
     private static partial Regex ExistingReviewsRegex();
 
-    public async Task<List<uint>> LoadingExistingReviews(Bot bot, int page = 1) {
+    public async Task<List<uint>> LoadingExistingReviews(Bot bot, uint page = 1) {
         try {
             List<uint> reviewList = [];
 
