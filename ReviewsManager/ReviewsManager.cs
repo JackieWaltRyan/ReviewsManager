@@ -96,7 +96,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
             bot.ArchiLogger.LogGenericInfo($"Checking existing reviews: Page {page}");
 
-            HtmlDocumentResponse? rawResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamCommunityURL}/profiles/{bot.SteamID}/recommended/?p={page}")).ConfigureAwait(false);
+            HtmlDocumentResponse? rawResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamCommunityURL}/profiles/{bot.SteamID}/recommended/?p={page}"), referer: new Uri($"{ArchiWebHandler.SteamCommunityURL}/profiles/{bot.SteamID}/recommended/")).ConfigureAwait(false);
 
             string? response = rawResponse?.Content?.Source?.Text;
 
@@ -170,7 +170,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                     if (ReviewsManagerConfig[bot.BotName].AddReviews) {
                         if (ReviewsManagerConfig[bot.BotName].AddReviewsConfig.Language == "auto") {
                             try {
-                                HtmlDocumentResponse? rawLanguageResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamStoreURL}/account/languagepreferences")).ConfigureAwait(false);
+                                HtmlDocumentResponse? rawLanguageResponse = await bot.ArchiWebHandler.UrlGetToHtmlDocumentWithSession(new Uri($"{ArchiWebHandler.SteamStoreURL}/account/languagepreferences"), referer: new Uri($"{ArchiWebHandler.SteamStoreURL}/account/")).ConfigureAwait(false);
 
                                 string? languageResponse = rawLanguageResponse?.Content?.Source.Text;
 
