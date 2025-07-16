@@ -1,5 +1,9 @@
 # Reviews Manager Plugin for ArchiSteamFarm
 
+[![GitHub release version](https://img.shields.io/github/v/release/JackieWaltRyan/ReviewsManager.svg?label=Stable&logo=github)](https://github.com/JackieWaltRyan/ReviewsManager/releases/latest)
+[![GitHub release date](https://img.shields.io/github/release-date/JackieWaltRyan/ReviewsManager.svg?label=Released&logo=github)](https://github.com/JackieWaltRyan/ReviewsManager/releases/latest)
+[![Github release downloads](https://img.shields.io/github/downloads/JackieWaltRyan/ReviewsManager/latest/total.svg?label=Downloads&logo=github)](https://github.com/JackieWaltRyan/ReviewsManager/releases/latest)
+
 ASF plugin for automatic adding and deleting reviews.
 
 ## Installation
