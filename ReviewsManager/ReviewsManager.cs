@@ -110,14 +110,12 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                         }
                     }
 
-                    List<uint> newReviewList = await LoadingReviews(bot, page + 1).ConfigureAwait(false);
-
-                    reviewList.AddRange(newReviewList);
+                    reviewList.AddRange(await LoadingReviews(bot, page + 1).ConfigureAwait(false));
                 }
             } else {
                 await Task.Delay(3000).ConfigureAwait(false);
 
-                await LoadingReviews(bot, page).ConfigureAwait(false);
+                reviewList.AddRange(await LoadingReviews(bot, page).ConfigureAwait(false));
             }
 
             return reviewList;
