@@ -27,31 +27,9 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
         if (additionalConfigProperties != null) {
             if (ReviewsManagerTimers.TryGetValue(bot.BotName, out Dictionary<string, Timer>? dict)) {
                 foreach (KeyValuePair<string, Timer> timers in dict) {
-                    switch (timers.Key) {
-                        case "GetAllReviews": {
-                            await timers.Value.DisposeAsync().ConfigureAwait(false);
+                    await timers.Value.DisposeAsync().ConfigureAwait(false);
 
-                            bot.ArchiLogger.LogGenericInfo("GetAllReviews Dispose.");
-
-                            break;
-                        }
-
-                        case "AddReviews": {
-                            await timers.Value.DisposeAsync().ConfigureAwait(false);
-
-                            bot.ArchiLogger.LogGenericInfo("AddReviews Dispose.");
-
-                            break;
-                        }
-
-                        case "DelReviews": {
-                            await timers.Value.DisposeAsync().ConfigureAwait(false);
-
-                            bot.ArchiLogger.LogGenericInfo("DelReviews Dispose.");
-
-                            break;
-                        }
-                    }
+                    bot.ArchiLogger.LogGenericInfo($"{timers.Key} Dispose.");
                 }
             }
 
