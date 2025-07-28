@@ -168,6 +168,10 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
                         bot.ArchiLogger.LogGenericInfo($"Add reviews found: {addData.Count}");
 
+                        if (ReviewsManagerConfig[bot.BotName].AddReviewsConfig.BlackList.Count > 0) {
+                            bot.ArchiLogger.LogGenericInfo($"BlackList: {ReviewsManagerConfig[bot.BotName].AddReviewsConfig.BlackList.ToJsonText()}");
+                        }
+
                         ReviewsManagerTimers[bot.BotName]["AddReviews"].Change(1, -1);
                     }
 
