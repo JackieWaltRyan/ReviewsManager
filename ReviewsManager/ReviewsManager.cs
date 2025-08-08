@@ -64,7 +64,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
     [GeneratedRegex("""https://steamcommunity\.com/app/(?<subID>\d+)""", RegexOptions.CultureInvariant)]
     private static partial Regex ExistingReviewsRegex();
 
-    public static async Task<List<uint>> LoadingReviews(Bot bot, uint page = 1) {
+    public static async Task<List<uint>> LoadingReviews(Bot bot, uint page = 1, bool check = false) {
         try {
             List<uint> reviewList = [];
 
@@ -88,17 +88,33 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
                         }
                     }
 
+                    await Task.Delay(1000).ConfigureAwait(false);
+
                     reviewList.AddRange(await LoadingReviews(bot, page + 1).ConfigureAwait(false));
+                } else {
+                    if (!check) {
+                        await Task.Delay(5000).ConfigureAwait(false);
+
+                        List<uint> newList = await LoadingReviews(bot, page, true).ConfigureAwait(false);
+
+                        if (newList.Count > 0) {
+                            reviewList.AddRange(newList);
+
+                            await Task.Delay(1000).ConfigureAwait(false);
+
+                            reviewList.AddRange(await LoadingReviews(bot, page + 1).ConfigureAwait(false));
+                        }
+                    }
                 }
             } else {
-                await Task.Delay(3000).ConfigureAwait(false);
+                await Task.Delay(5000).ConfigureAwait(false);
 
                 reviewList.AddRange(await LoadingReviews(bot, page).ConfigureAwait(false));
             }
 
             return reviewList;
         } catch {
-            await Task.Delay(3000).ConfigureAwait(false);
+            await Task.Delay(5000).ConfigureAwait(false);
 
             return await LoadingReviews(bot, page).ConfigureAwait(false);
         }
@@ -227,7 +243,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
                         bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: OK | Queue: {addData.Count}");
 
-                        ReviewsManagerTimers[bot.BotName]["AddReviews"].Change(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
+                        ReviewsManagerTimers[bot.BotName]["AddReviews"].Change(TimeSpan.FromSeconds(5), TimeSpan.FromMilliseconds(-1));
 
                         return;
                     }
@@ -273,7 +289,7 @@ internal sealed partial class ReviewsManager : IGitHubPluginUpdates, IBotModules
 
                     bot.ArchiLogger.LogGenericInfo($"ID: {gameId} | Status: OK | Queue: {delData.Count}");
 
-                    ReviewsManagerTimers[bot.BotName]["DelReviews"].Change(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
+                    ReviewsManagerTimers[bot.BotName]["DelReviews"].Change(TimeSpan.FromSeconds(5), TimeSpan.FromMilliseconds(-1));
 
                     return;
                 }
